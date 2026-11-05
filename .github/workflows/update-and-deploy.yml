@@ -1,0 +1,55 @@
+name: Update JobPilot at 10 AM Berlin
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+      timezone: 'Europe/Berlin'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'update_jobs.py'
+      - '.github/workflows/update-and-deploy.yml'
+      - 'README.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jobpilot-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Search public job feeds and filter fresh CV matches
+        run: python update_jobs.py
+      - name: Prepare public website files
+        run: |
+          mkdir -p site
+          cp index.html jobs.json site/
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload static site and today's listings
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish JobPilot
+        id: deployment
+        uses: actions/deploy-pages@v4
