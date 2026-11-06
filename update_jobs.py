@@ -205,7 +205,21 @@ def run():
       'type':'internship','language':'en','since':since,'field':'operations,consulting,marketing,finance,research','limit':300,'ref':'jobpilot'})
     for page in range(2):
         if not url:break
-        try:payload=fetch(url)
+        try:
+            payload=fetch(url)
+        except urllib.error.HTTPError as exc:
+            if exc.code==400 and page==0:
+                # API filters can differ between deployments: retry supported basics
+                # instead of letting an optional category filter break internships.
+                try:
+                    fallback='https://www.workingstudentjobs.de/api/v1/jobs?'+urllib.parse.urlencode({
+                      'type':'internship','language':'en','limit':300})
+                    payload=fetch(fallback)
+                    errors.append('Internship source rejected filtered query (HTTP 400); retried with basic internship and English parameters.')
+                except Exception as retry_exc:
+                    errors.append('Internship feed unavailable after fallback: '+str(retry_exc));break
+            else:
+                errors.append('Internship feed: '+str(exc));break
         except Exception as exc:
             errors.append('Internship feed: '+str(exc));break
         arr=payload.get('data') or []
