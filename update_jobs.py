@@ -2,7 +2,7 @@
 """JobPilot: screen public Germany job feeds and produce jobs.json for GitHub Pages.
 
 No API keys. Conservative rules: no German requirement, dated within 14 calendar
-days, junior roles, expected CV fit >=85. Feed posting dates are NOT verified
+days, graduate / entry-level / junior / associate roles, estimated CV fit >=70. Feed posting dates are NOT verified
 employer-original posting dates. Source outages are disclosed in metadata.
 """
 from __future__ import annotations
@@ -72,7 +72,7 @@ def city_of(location):
     s=str(location or '').lower()
     return next((c for c in CITIES if c.lower() in s),'Germany')
 
-TITLE_GOOD=re.compile(r'\b(?:project\s+(?:coordinator|officer|assistant|associate|analyst)|junior\s+project\s+manager|project\s+management\s+(?:associate|intern)|pmo\b|program(?:me)?\s+(?:associate|assistant|coordinator|officer|analyst)|business\s+operations|operations\s+(?:associate|analyst|coordinator|specialist|intern)|(?:graduate|junior)\s+(?:business|operations|project|product|process|trading)\s+(?:analyst|associate|coordinator|manager)|(?:junior|associate)\s+product\s+manager|(?:junior|business)\s+analyst|strategy\s+and\s+operations\s+associate|founder\'?s?\s+associate|operations\s+and\s+events\s+associate)\b',re.I)
+TITLE_GOOD=re.compile(r'\b(?:project\s+(?:coordinator|officer|assistant|associate|analyst)|(?:junior|graduate|associate)\s+project\s+manager|project\s+management\s+(?:associate|intern|coordinator)|pmo\b|program(?:me)?\s+(?:associate|assistant|coordinator|officer|analyst|intern)|(?:junior|graduate)\s+program(?:me)?\s+manager|business\s+operations|operations\s+(?:associate|analyst|coordinator|specialist|intern)|(?:graduate|junior|entry[- ]level|associate)\s+(?:business|operations|project|product|process|trading|strategy|marketing|growth)\s+(?:analyst|associate|coordinator|manager|specialist|intern|consultant)|(?:junior|associate|graduate)\s+product\s+(?:manager|analyst)|product\s+management\s+intern|product\s+operations\s+(?:associate|analyst|coordinator|intern)|(?:junior|business|strategy|consulting|product|marketing|growth)\s+analyst|strategy\s+and\s+operations\s+(?:associate|analyst|intern)|founder\'?s?\s+(?:associate|intern)|(?:junior|graduate|associate)\s+(?:strategy|management|business)\s+consultant|(?:junior|graduate|associate)\s+consultant|consulting\s+(?:analyst|associate|intern)|marketing\s+(?:coordinator|associate|analyst|intern)|growth\s+(?:associate|analyst|intern|coordinator)|(?:digital|product|performance|growth)\s+marketing\s+(?:coordinator|associate|analyst|intern|specialist)|operations\s+and\s+events\s+associate)\b',re.I)
 TITLE_BAD=re.compile(r'\b(?:senior|sr\.|principal|staff|head of|director|vp|vice president|expert|architect|technical lead|manager of|engineer|scientist|accountant|bookkeeper|tax|legal|doctor|technician|developer|sales development|account executive|customer service representative|purchasing manager)\b',re.I)
 YEARS_HIGH=re.compile(r'\b(?:[4-9]|1\d)\s*\+?\s*(?:years|yrs)\s+(?:of\s+)?(?:relevant\s+)?experience\b|\b(?:minimum|at least)\s+(?:[4-9]|1\d)\s+years\b',re.I)
 GERMAN_AD=re.compile(r'\b(?:du bringst mit|deine aufgaben|wir suchen dich|sehr gute deutschkenntnisse|sie verfügen über|verhandlungssicheres deutsch|bitte bewerben sie|wir bieten dir)\b',re.I)
@@ -92,31 +92,39 @@ def language_ok(txt,tags=()):
 
 
 def score_role(title,text):
+    """Heuristic CV relevance estimate; never a hiring probability."""
     if not TITLE_GOOD.search(title) or TITLE_BAD.search(title) or YEARS_HIGH.search(text): return None
-    if re.search(r'\b(?:currently enrolled|must be enrolled|be a registered student|student enrollment required)\b',text,re.I): return None
-    if re.search(r'pmo|project manager|project officer|project coordinator|program(?:me)?',title,re.I): cat='PMO / Project'
-    elif re.search('product manager',title,re.I): cat='Product / Project'
-    elif re.search('strategy|founder',title,re.I): cat='Strategy & Operations'
-    elif re.search('business analyst',title,re.I): cat='Business Analysis'
+    if re.search(r'\b(?:currently enrolled|must be enrolled|be a registered student|student enrollment required|enrolled in a university)\b',text,re.I): return None
+    if re.search(r'\bprogram(?:me)?\b',title,re.I): cat='Programme Coordination'
+    elif re.search(r'pmo|project',title,re.I): cat='Project Management'
+    elif re.search(r'product',title,re.I): cat='Product Management'
+    elif re.search(r'strategy|consult|founder',title,re.I): cat='Strategy & Consulting'
+    elif re.search(r'marketing|growth',title,re.I): cat='Marketing & Growth'
+    elif re.search(r'business analyst|business intelligence|consulting analyst',title,re.I): cat='Business Analysis'
     else: cat='Operations'
-    score=77; why=[]
-    if re.search(r'pmo|project coordinator|project officer|program(?:me)? associate|project management associate|junior project manager',title,re.I):
-        score+=9;why.append('project coordination and stakeholder delivery')
-    elif re.search('operations|process|business analyst',title,re.I):
-        score+=8;why.append('operations and process improvement')
-    elif re.search('product manager',title,re.I):
-        score+=7;why.append('cross-functional product delivery')
-    elif re.search('founder',title,re.I):
-        score+=5;why.append('startup project delivery')
-    if re.search('stakeholder|cross-functional|project management|project planning|milestone',text,re.I):
-        score+=3;why.append('stakeholders and project tracking')
-    if re.search('kpi|reporting|excel|spreadsheet|dashboard|analyt',text,re.I):
-        score+=3;why.append('reporting and analytics')
-    if re.search('process improvement|workflow|automation|jira|operations',text,re.I):
+    score=65;why=[]
+    if cat in ('Project Management','Programme Coordination'):
+        score+=10;why.append('project and programme coordination')
+    elif cat=='Operations':
+        score+=9;why.append('operational improvements and cross-team delivery')
+    elif cat=='Business Analysis':
+        score+=8;why.append('Excel reporting and structured analysis')
+    elif cat=='Product Management':
+        score+=8;why.append('cross-functional MVP/product delivery')
+    elif cat=='Marketing & Growth':
+        score+=7;why.append('go-to-market, marketing and growth campaigns')
+    elif cat=='Strategy & Consulting':
+        score+=6;why.append('business model assessment and management studies')
+    if re.search(r'stakeholder|cross-functional|project management|project planning|milestone|programme management',text,re.I):
+        score+=4;why.append('stakeholders and project tracking')
+    if re.search(r'kpi|reporting|excel|spreadsheet|dashboard|analyt',text,re.I):
+        score+=4;why.append('reporting and analytics')
+    if re.search(r'process improvement|workflow|automation|jira|operations',text,re.I):
         score+=3;why.append('workflow and process improvement')
-    if re.search('startup|business model|research project|sustainab',text,re.I):
-        score+=1
-    if score<85:return None
+    if re.search(r'go.to.market|marketing|growth|campaign|seo|market research',text,re.I):
+        score+=3;why.append('marketing and growth execution')
+    if re.search(r'startup|business model|research project|sustainab|strategy',text,re.I): score+=2
+    if score<70:return None
     return min(score,96),cat,why
 
 
@@ -183,7 +191,7 @@ def run():
         url=urllib.parse.urljoin('https://www.arbeitnow.com',next_url) if next_url else None
     since=MIN_DATE.isoformat()
     url='https://www.workingstudentjobs.de/api/v1/jobs?'+urllib.parse.urlencode({
-      'type':'internship','language':'en','since':since,'field':'operations,consulting,marketing,finance,research','limit':300,'ref':'jobpilot'})
+      'type':'internship','language':'en','since':since,'field':'operations,consulting,marketing,finance,research,product,project,management,strategy','limit':300,'ref':'jobpilot'})
     for page in range(2):
         if not url:break
         try:payload=fetch(url)
@@ -201,7 +209,7 @@ def run():
         if key not in dedup or j['score']>dedup[key]['score']:dedup[key]=j
     jobs=sorted(dedup.values(),key=lambda j:(-j['score'],j['posted']))
     meta=dict(generated_at=NOW.isoformat(),timezone='Europe/Berlin',scanned=scanned,added=len(jobs),errors=errors,
-      source_note='Automatic screening of job boards: employer-original publication dates and mandatory language cannot be independently guaranteed.',
+      source_note='Automatic 70+ CV-fit screening of seven role categories (project, operations, business analysis, strategy/consulting, product, programme, marketing/growth). Employer-original publication dates and mandatory language cannot be independently guaranteed.',
       search_window={'from':MIN_DATE.isoformat(),'to':TODAY.isoformat()},jobs=jobs)
     # Never replace the prior feed with an empty success if all sources fail.
     if errors and scanned==0 and OUT.exists():
