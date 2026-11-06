@@ -176,6 +176,7 @@ def from_intern(j):
 
 def run():
     all_jobs=[];errors=[];scanned=0
+    checks={'recent':0,'recent_germany':0,'matching_title':0,'english_evidence':0,'qualified_arbeitnow':0,'qualified_internships':0}
     url='https://www.arbeitnow.com/api/job-board-api?page=1'
     for page in range(1,11):
         if not url:break
@@ -185,13 +186,23 @@ def run():
             errors.append('Arbeitnow page '+str(page)+': '+str(exc));break
         arr=payload.get('data') or []
         scanned+=len(arr)
-        all_jobs.extend(x for x in map(from_arbeitnow,arr) if x)
+        for x in arr:
+            if recent(x.get('created_at')): checks['recent']+=1
+            if not recent(x.get('created_at')) or not in_germany(x.get('location')): continue
+            checks['recent_germany']+=1
+            title=str(x.get('title') or '')
+            if not TITLE_GOOD.search(title) or TITLE_BAD.search(title): continue
+            checks['matching_title']+=1
+            if not language_ok(clean(x.get('description')),x.get('tags') or ()):continue
+            checks['english_evidence']+=1
+            found=from_arbeitnow(x)
+            if found: all_jobs.append(found);checks['qualified_arbeitnow']+=1
         if arr and all(j.get('created_at') and not recent(j['created_at']) and date_of(j['created_at']) is not None and date_of(j['created_at'])<MIN_DATE for j in arr):break
         next_url=(payload.get('links') or {}).get('next')
         url=urllib.parse.urljoin('https://www.arbeitnow.com',next_url) if next_url else None
     since=MIN_DATE.isoformat()
     url='https://www.workingstudentjobs.de/api/v1/jobs?'+urllib.parse.urlencode({
-      'type':'internship','language':'en','since':since,'field':'operations,consulting,marketing,finance,research,product,project,management,strategy','limit':300,'ref':'jobpilot'})
+      'type':'internship','language':'en','since':since,'field':'operations,consulting,marketing,finance,research','limit':300,'ref':'jobpilot'})
     for page in range(2):
         if not url:break
         try:payload=fetch(url)
@@ -199,7 +210,9 @@ def run():
             errors.append('Internship feed: '+str(exc));break
         arr=payload.get('data') or []
         scanned+=len(arr)
-        all_jobs.extend(x for x in map(from_intern,arr) if x)
+        for x in arr:
+            found=from_intern(x)
+            if found: all_jobs.append(found);checks['qualified_internships']+=1
         next_url=(payload.get('links') or {}).get('next')
         url=urllib.parse.urljoin('https://www.workingstudentjobs.de',next_url) if next_url else None
     # Never count an old job simply because it was retained from a previous day's JSON.
@@ -210,7 +223,7 @@ def run():
     jobs=sorted(dedup.values(),key=lambda j:(-j['score'],j['posted']))
     meta=dict(generated_at=NOW.isoformat(),timezone='Europe/Berlin',scanned=scanned,added=len(jobs),errors=errors,
       source_note='Automatic 70+ CV-fit screening of seven role categories (project, operations, business analysis, strategy/consulting, product, programme, marketing/growth). Employer-original publication dates and mandatory language cannot be independently guaranteed.',
-      search_window={'from':MIN_DATE.isoformat(),'to':TODAY.isoformat()},jobs=jobs)
+      search_window={'from':MIN_DATE.isoformat(),'to':TODAY.isoformat()},diagnostics=checks,jobs=jobs)
     # Never replace the prior feed with an empty success if all sources fail.
     if errors and scanned==0 and OUT.exists():
         previous=json.loads(OUT.read_text(encoding='utf-8'))
@@ -220,6 +233,7 @@ def run():
             meta['source_note']+=' Latest sources failed; only still-recent previously fetched jobs retained.'
     OUT.write_text(json.dumps(meta,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     print(f'Generated {len(meta["jobs"])} jobs from {scanned} records, {len(errors)} source errors')
+    print('Filter diagnostics:',checks)
     if errors:print('Warnings:',*errors,sep='\n  ')
     return 0
 
