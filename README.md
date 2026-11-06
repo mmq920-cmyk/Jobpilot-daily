@@ -1,12 +1,12 @@
-# JobPilot — daily strong-match jobs in Germany
+# JobPilot — daily 70+ CV-fit jobs in Germany
 
 A self-hosted job-search dashboard with a scheduled refresh **every day at 10:00 Europe/Berlin**. It runs when the browser is closed, once published using GitHub Actions and GitHub Pages.
 
 ## What it does
 
 - Generates a new `jobs.json` file from public jobs feeds every morning at **10:00 Berlin time**, with daylight-saving changes handled by GitHub's timezone-aware schedule.
-- Searches Germany only, with a rolling 14-day publication window and a rule-based CV match of **85/100 or higher**.
-- Excludes roles with detected mandatory German/other-language requirements, senior requirements, high experience bars and unrelated job titles. It requires explicit English-language evidence.
+- Searches Germany only, with a rolling 14-day publication window and a rule-based CV match of **70/100 or higher**.
+- Searches seven categories: Project Management, Operations, Business Analysis, Strategy & Consulting, Product Management, Programme Coordination, Marketing & Growth. Includes graduate, entry-level, junior and associate full-time roles and graduate-accessible internships; excludes detected mandatory German/other-language requirements, excessive seniority and unrelated jobs. It requires explicit English-language evidence.
 - Publishes the dashboard and current jobs as a GitHub Pages site. The dashboard reads the newest `jobs.json` when loaded and when refreshed.
 - Provides `Not Applied`, `Applied`, `In Progress`, and `Rejected` tracking, interview notes, application/follow-up dates, and CSV/JSON exports.
 
